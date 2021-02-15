@@ -11,9 +11,9 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
 kpopUrl = "http://www.kpopmap.com/update-upcoming-k-pop-comeback-debut-lineup-in-february-2021/"
-kpopCalId = '03p1t9k911ku24gpg1rkegvgs4@group.calendar.google.com'
+kpopCalId = ''
 kdramaUrl = "https://wiki.d-addicts.com/Upcoming_KDrama"
-kdramaCalId = '8urop2ocralsrkalb5ao7g6de4@group.calendar.google.com'
+kdramaCalId = 'p030obls0j9ghhgf6u79qbjrts@group.calendar.google.com'
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 def makeSoup(url):
@@ -30,7 +30,7 @@ def updateKdrama(service):
         if elem.name == 'table':
             populateKdramaCal(service, elem.tbody.contents)
 
-def updateKpop():
+def updateKpop(service):
     soup = makeSoup(kpopUrl)
     cbSchedule = soup.find("div", "comeback-schedule")
 
@@ -41,12 +41,16 @@ def populateKdramaCal(service, dramas):
         wiki = 'https://wiki.d-addicts.com' + dramaContent[1].a['href']
         date = dramaContent[3].text
         cast = dramaContent[5].text
-        if len(date) < 12 or len(dramaContent[1].a['href']) > len(title):
+        # Premiere date is not set yet
+        if len(date) < 12:
             break
+        # Wiki page has not been made yet
+        if len(dramaContent[1].a['href']) > len(title):
+            continue
         network, recurrence = getDramaInfo(wiki)
+        # Doesn't follow the pattern
         if not network:
-            break
-        print(title+recurrence)
+            continue
         addKdramaEvent(service, title, network, cast, wiki, date, recurrence)
 
 def getDramaInfo(wiki):
@@ -79,15 +83,18 @@ def getDramaInfo(wiki):
                 days = days[:-1]
             if days:
                 recurrence = 'RRULE:FREQ=WEEKLY;COUNT=' + episodes + ';WKST=SU;BYDAY=' + days
-    if len(episodes) > 3:
+    if not episodes or len(episodes) > 3:
         network = ''
     return network, recurrence
 
 def addKdramaEvent(service, title, network, cast, wiki, date, recurrence):
     formattedDate = datetime.strptime(date, '%Y-%b-%d\n')
+    regex = re.compile('[^a-v0-9]')
+    id = regex.sub('', wiki)
     event = {
         'summary': title,
         'transparency': 'transparent',
+        'id': id,
         'description': network + '\n' + 'Cast: ' + cast + wiki,
         'start': {
             'date': formattedDate.strftime('%Y-%m-%d'),
@@ -97,28 +104,20 @@ def addKdramaEvent(service, title, network, cast, wiki, date, recurrence):
             'date': formattedDate.strftime('%Y-%m-%d'),
             'timeZone': 'America/Los_Angeles',
         },
-        'recurrence': [
-            recurrence
-        ],
     }
-    #now = datetime.utcnow().isoformat() + 'Z'
-    #events_result = service.events().list(calendarId = kpopCalId, timeMin = now).execute()
-    #events = events_result.get('items', [])
-    #exists = False
-    #for event in events:
-    #    if event['summary'] == title:
-    #        service.events().update(calendarId = kpopCalId, eventId = event['id'], body = event).execute()
-    #        exists = True
-    #        print('exists')
-    #if not exists:
-    event = service.events().insert(calendarId = kdramaCalId, body = event).execute()
+    if recurrence:
+        event['recurrence'] = [recurrence]
+    try:
+        service.events().insert(calendarId = kdramaCalId, body = event).execute()
+    except Exception:
+        service.events().update(calendarId = kdramaCalId, eventId = id, body = event).execute()
 
 
 creds = None
 if os.path.exists('token.pickle'):
     with open('token.pickle', 'rb') as token:
         creds = pickle.load(token)
-# If there are no (valid) credentials available, let the user log in.
+# If there are no (valid) credentials available, let the user log in
 if not creds or not creds.valid:
     if creds and creds.expired and creds.refresh_token:
         creds.refresh(Request())
