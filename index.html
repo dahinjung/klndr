@@ -1,1 +1,25 @@
-<iframe src="https://calendar.google.com/calendar/embed?src=p030obls0j9ghhgf6u79qbjrts%40group.calendar.google.com&ctz=America%2FLos_Angeles" style="border: 0" width="800" height="600" frameborder="0" scrolling="no">Korean Dramas</iframe>
+<!DOCTYPE html>
+<html lang='en'>
+  <head>
+    <meta charset='utf-8' />
+    <link href='fullcalendar/main.css' rel='stylesheet' />
+    <script src='fullcalendar/main.js'></script>
+    <script>
+
+      document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+          googleCalendarApiKey: 'AIzaSyC1tTWVHR8BiKsdA8NEaqtZG06WVmiDJvs',
+          events: {
+            googleCalendarId: 'p030obls0j9ghhgf6u79qbjrts@group.calendar.google.com'
+          }
+        });
+        calendar.render();
+      });
+
+    </script>
+  </head>
+  <body>
+    <div id='calendar'></div>
+  </body>
+</html>
